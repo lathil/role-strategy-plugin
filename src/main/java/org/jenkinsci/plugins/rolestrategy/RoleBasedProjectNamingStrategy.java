@@ -3,6 +3,7 @@ package org.jenkinsci.plugins.rolestrategy;
 import com.michelin.cio.hudson.plugins.rolestrategy.Messages;
 import com.michelin.cio.hudson.plugins.rolestrategy.Role;
 import com.michelin.cio.hudson.plugins.rolestrategy.RoleBasedAuthorizationStrategy;
+import com.michelin.cio.hudson.plugins.rolestrategy.RoleSid;
 import hudson.Extension;
 import hudson.model.Failure;
 import hudson.model.Item;
@@ -37,16 +38,16 @@ public class RoleBasedProjectNamingStrategy extends ProjectNamingStrategy implem
         this.forceExistingJobs = forceExistingJobs;
     }
 
-    private boolean checkAuthorities(Set<String> sids) {
+    private boolean checkAuthorities(Set<RoleSid> sids) {
         Authentication authentication = Jenkins.getAuthentication();
-        for( String sid : sids ){
+        for( RoleSid sid : sids ){
             String principal = (new PrincipalSid(authentication)).getPrincipal();
-            if( principal.equals( sid )){
+            if( principal.equals( sid.getName())|| sid.matches(principal).matches()){
                 return true;
             }
             for(GrantedAuthority ga : authentication.getAuthorities()) {
                 String authorityName = (new GrantedAuthoritySid(ga)).getGrantedAuthority();
-                if( authorityName.equals(sid)){
+                if( authorityName.equals(sid.getName()) || sid.matches(authorityName).matches()){
                     return true;
                 }
             }
@@ -61,21 +62,20 @@ public class RoleBasedProjectNamingStrategy extends ProjectNamingStrategy implem
         AuthorizationStrategy auth = Jenkins.getActiveInstance().getAuthorizationStrategy();
         if (auth instanceof RoleBasedAuthorizationStrategy){
             RoleBasedAuthorizationStrategy rbas = (RoleBasedAuthorizationStrategy) auth;
+
             //firstly check global role
-            SortedMap<Role, Set<String>> gRole = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
-            boolean hasGlobalAuth = false;
-            for (SortedMap.Entry<Role, Set<String>> entry: gRole.entrySet()){
-                if( checkAuthorities(entry.getValue())) {
+            SortedMap<Role, Set<RoleSid>> gRole = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
+            for (SortedMap.Entry<Role, Set<RoleSid>> entry: gRole.entrySet()){
+                if( checkAuthorities( entry.getValue())) {
                     if (entry.getKey().hasPermission(Item.CREATE))
-                        hasGlobalAuth = true;
-                    break;
+                        return;
                 }
             }
             // check project role with pattern
-            SortedMap<Role, Set<String>> roles = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.PROJECT);
+            SortedMap<Role, Set<RoleSid>> roles = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.PROJECT);
             badList = new ArrayList<>(roles.size());
-            for (SortedMap.Entry<Role, Set<String>> entry: roles.entrySet())  {
-                if( checkAuthorities(entry.getValue()) && hasGlobalAuth) {
+            for (SortedMap.Entry<Role, Set<RoleSid>> entry: roles.entrySet())  {
+                if( checkAuthorities( entry.getValue())) {
                     Role key = entry.getKey();
                     if (key.hasPermission(Item.CREATE)) {
                         String namePattern = key.getPattern().toString();

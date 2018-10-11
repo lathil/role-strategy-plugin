@@ -28,6 +28,7 @@ import hudson.security.AccessControlled;
 import hudson.security.Permission;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -42,7 +43,7 @@ import javax.annotation.Nonnull;
  * Class representing a role, which holds a set of {@link Permission}s.
  * @author Thomas Maurel
  */
-public final class Role implements Comparable {
+public class Role implements Comparable {
   public static final String GLOBAL_ROLE_PATTERN = ".*";
 
   private static final Logger LOGGER = Logger.getLogger(Role.class.getName());  
@@ -69,6 +70,11 @@ public final class Role implements Comparable {
   private final Set < Permission > permissions = new HashSet < Permission > ();
 
   private transient Integer cachedHashCode = null;
+
+
+  Role(){
+      this("", new TreeSet<Permission>());
+  }
 
   /**
    * Constructor for a global role with no pattern (which is then defaulted to
@@ -122,7 +128,7 @@ public final class Role implements Comparable {
    * Getter for the role name.
    * @return The role name
    */
-  public final String getName() {
+  public String getName() {
     return name;
   }
 
@@ -130,7 +136,7 @@ public final class Role implements Comparable {
    * Getter for the regexp pattern.
    * @return The pattern associated to the role
    */
-  public final Pattern getPattern() {
+  public Pattern getPattern() {
     return pattern;
   }
 
@@ -138,7 +144,7 @@ public final class Role implements Comparable {
    * Getter for the {@link Permission}s set.
    * @return {@link Permission}s set
    */
-  public final Set < Permission > getPermissions() {
+  public Set < Permission > getPermissions() {
     return permissions;
   }
 
@@ -156,7 +162,7 @@ public final class Role implements Comparable {
    * @param permission The permission you want to check
    * @return True if the role holds this permission
    */
-  public final Boolean hasPermission(Permission permission) {
+  public Boolean hasPermission(Permission permission) {
     return permissions.contains(permission);
   }
 
@@ -165,7 +171,7 @@ public final class Role implements Comparable {
    * @param permissions A {@link Permission}s set
    * @return True if the role holds any of the given {@link Permission}s
    */
-  public final Boolean hasAnyPermission(Set<Permission> permissions) {
+  public Boolean hasAnyPermission(Set<Permission> permissions) {
     return CollectionUtils.containsAny(this.permissions, permissions);
   }
 

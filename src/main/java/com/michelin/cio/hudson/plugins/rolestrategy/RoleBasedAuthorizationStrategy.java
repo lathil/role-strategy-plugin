@@ -195,7 +195,7 @@ public class RoleBasedAuthorizationStrategy extends AuthorizationStrategy {
    *         May return {@code} if a non-supported type is defined.
    */
   @Nullable
-  public SortedMap<Role, Set<String>> getGrantedRoles(String type) {
+  public SortedMap<Role, Set<RoleSid>> getGrantedRoles(String type) {
     RoleMap roleMap = this.getRoleMap(type);
     if (roleMap != null) {
       return roleMap.getGrantedRoles();
@@ -354,7 +354,7 @@ public class RoleBasedAuthorizationStrategy extends AuthorizationStrategy {
                 if (!type.equals(RoleBasedAuthorizationStrategy.GLOBAL)){
                     responseJson.put("pattern",role.getPattern().pattern());
                 }
-                Map<Role,Set<String>> grantedRoleMap = roleMap.getGrantedRoles();
+                Map<Role,Set<RoleSid>> grantedRoleMap = roleMap.getGrantedRoles();
                 responseJson.put("sids", grantedRoleMap.get(role));
             }
         }
@@ -497,7 +497,7 @@ public class RoleBasedAuthorizationStrategy extends AuthorizationStrategy {
             roleMap = this.grantedRoles.get(type);
         }
         if (roleMap != null) {
-            for (Map.Entry<Role, Set<String>> grantedRole : roleMap.getGrantedRoles().entrySet()) {
+            for (Map.Entry<Role, Set<RoleSid>> grantedRole : roleMap.getGrantedRoles().entrySet()) {
                 responseJson.put(grantedRole.getKey().getName(), grantedRole.getValue());
             }
         }
@@ -535,7 +535,7 @@ public class RoleBasedAuthorizationStrategy extends AuthorizationStrategy {
           writer.startNode("roleMap");
           writer.addAttribute("type", map.getKey());
 
-          for (Map.Entry<Role, Set<String>> grantedRole : roleMap.getGrantedRoles().entrySet()) {
+          for (Map.Entry<Role, Set<RoleSid>> grantedRole : roleMap.getGrantedRoles().entrySet()) {
             Role role = grantedRole.getKey();
             if (role != null) {
               writer.startNode("role");
@@ -551,9 +551,9 @@ public class RoleBasedAuthorizationStrategy extends AuthorizationStrategy {
               writer.endNode();
 
               writer.startNode("assignedSIDs");
-              for (String sid : grantedRole.getValue()) {
+              for (RoleSid sid : grantedRole.getValue()) {
                 writer.startNode("sid");
-                writer.setValue(sid);
+                writer.setValue(sid.getName());
                 writer.endNode();
               }
               writer.endNode();
@@ -766,10 +766,10 @@ public class RoleBasedAuthorizationStrategy extends AuthorizationStrategy {
           strategy.addRole(GLOBAL, role);
           RoleMap roleMap = ((RoleBasedAuthorizationStrategy) oldStrategy).getRoleMap(GLOBAL);
           if (roleMap != null) {
-            Set<String> sids = roleMap.getSidsForRole(roleName);
+            Set<RoleSid> sids = roleMap.getSidsForRole(roleName);
             if (sids != null) {
-              for (String sid : sids) {
-                strategy.assignRole(GLOBAL, role, sid);
+              for (RoleSid sid : sids) {
+                strategy.assignRole(GLOBAL, role, sid.getName());
               }
             }
           }
@@ -834,10 +834,10 @@ public class RoleBasedAuthorizationStrategy extends AuthorizationStrategy {
 
           RoleMap roleMap = oldStrategy.getRoleMap(roleType);
           if (roleMap != null) {
-            Set<String> sids = roleMap.getSidsForRole(roleName);
+            Set<RoleSid> sids = roleMap.getSidsForRole(roleName);
             if (sids != null) {
-              for (String sid : sids) {
-                targetStrategy.assignRole(roleType, role, sid);
+              for (RoleSid sid : sids) {
+                targetStrategy.assignRole(roleType, role, sid.getName());
               }
             }
           }
@@ -860,7 +860,7 @@ public class RoleBasedAuthorizationStrategy extends AuthorizationStrategy {
 
     /**
      * Get the current user ({@code Anonymous} if not logged-in).
-     * @return Sid of the current user
+     * @return RoleSid of the current user
      */
     private String getCurrentUser() {
       PrincipalSid currentUser = new PrincipalSid(Hudson.getAuthentication());
