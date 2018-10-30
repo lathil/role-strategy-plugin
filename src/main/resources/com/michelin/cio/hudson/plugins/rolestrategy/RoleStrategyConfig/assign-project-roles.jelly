@@ -45,8 +45,8 @@
       </tr>
       <j:set var="nbAssignedProjectsRoles" value="${0}" />
       <j:forEach var="sid" items="${projectSIDs}">
-        <tr name="[${sid}]" class="permission-row">
-          <local:userRow sid="${sid}" title="${sid}" global="${false}"  type="${it.strategy.PROJECT}"/>
+        <tr name="[${sid.getName()}]" class="permission-row">
+          <local:userRow sid="${sid}" title="${sid.getName()}" global="${false}"  type="${it.strategy.PROJECT}"/>
         </tr>
         <j:set var="nbAssignedProjectsRoles" value="${nbAssignedProjectsRoles+1}" />
       </j:forEach>

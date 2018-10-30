@@ -47,8 +47,8 @@
       </tr>
       <j:set var="nbAssignedSlaveRoles" value="${0}" />
       <j:forEach var="sid" items="${slaveSIDs}">
-        <tr name="[${sid}]" class="permission-row">
-          <local:userRow sid="${sid}" title="${sid}" global="${false}"  type="${it.strategy.SLAVE}"/>
+        <tr name="[${sid.getName()}]" class="permission-row">
+          <local:userRow sid="${sid}" title="${sid.getName()}" global="${false}"  type="${it.strategy.SLAVE}"/>
         </tr>
         <j:set var="nbAssignedSlaveRoles" value="${nbAssignedSlaveRoles+1}" />
       </j:forEach>

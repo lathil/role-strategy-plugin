@@ -23,9 +23,9 @@
  */
 package org.jenkinsci.plugins.rolestrategy.permissions;
 
+import com.michelin.cio.hudson.plugins.rolestrategy.MatchingSid;
 import com.michelin.cio.hudson.plugins.rolestrategy.Role;
 import com.michelin.cio.hudson.plugins.rolestrategy.RoleBasedAuthorizationStrategy;
-import com.michelin.cio.hudson.plugins.rolestrategy.RoleSid;
 import hudson.PluginManager;
 import hudson.security.Permission;
 import java.util.ArrayList;
@@ -35,7 +35,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import jenkins.model.Jenkins;
@@ -126,7 +125,7 @@ public class PermissionHelper {
      */
     @CheckForNull
     public static String reportDangerousPermissions(@Nonnull RoleBasedAuthorizationStrategy strategy) {
-        SortedMap<Role, Set<RoleSid>> grantedRoles = strategy.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
+        SortedMap<Role, Set<MatchingSid>> grantedRoles = strategy.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
         return grantedRoles != null ? reportDangerousPermissions(grantedRoles.keySet()) : null;
     }
     
@@ -159,7 +158,7 @@ public class PermissionHelper {
     
     @CheckForNull
     public static boolean hasDangerousPermissions(@Nonnull RoleBasedAuthorizationStrategy strategy) {
-        SortedMap<Role, Set<RoleSid>> grantedRoles = strategy.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
+        SortedMap<Role, Set<MatchingSid>> grantedRoles = strategy.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
         if (grantedRoles == null) {
             // Undefined
             return false;

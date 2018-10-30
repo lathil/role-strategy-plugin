@@ -29,6 +29,7 @@ import hudson.security.Permission;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -173,6 +174,10 @@ public class Role implements Comparable {
    */
   public Boolean hasAnyPermission(Set<Permission> permissions) {
     return CollectionUtils.containsAny(this.permissions, permissions);
+  }
+
+  public Matcher getMatcher(){
+      return null;
   }
 
   /**

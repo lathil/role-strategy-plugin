@@ -1,9 +1,9 @@
 package org.jenkinsci.plugins.rolestrategy;
 
+import com.michelin.cio.hudson.plugins.rolestrategy.MatchingSid;
 import com.michelin.cio.hudson.plugins.rolestrategy.Messages;
 import com.michelin.cio.hudson.plugins.rolestrategy.Role;
 import com.michelin.cio.hudson.plugins.rolestrategy.RoleBasedAuthorizationStrategy;
-import com.michelin.cio.hudson.plugins.rolestrategy.RoleSid;
 import hudson.Extension;
 import hudson.model.Failure;
 import hudson.model.Item;
@@ -19,8 +19,10 @@ import org.kohsuke.stapler.DataBoundConstructor;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -38,52 +40,85 @@ public class RoleBasedProjectNamingStrategy extends ProjectNamingStrategy implem
         this.forceExistingJobs = forceExistingJobs;
     }
 
-    private boolean checkAuthorities(Set<RoleSid> sids) {
+    private List<Matcher> checkAuthorities(Set<MatchingSid> sids, boolean matchAll) {
+
+        List<Matcher> matchingAuthorities = new ArrayList<>();
         Authentication authentication = Jenkins.getAuthentication();
-        for( RoleSid sid : sids ){
+        for( MatchingSid sid : sids ){
             String principal = (new PrincipalSid(authentication)).getPrincipal();
-            if( principal.equals( sid.getName())|| sid.matches(principal).matches()){
-                return true;
+            Matcher matcher = sid.matches(principal);
+            if( principal.equals( sid.getName())|| matcher.matches()){
+                matchingAuthorities.add(matcher);
+                if( !matchAll) break;
             }
             for(GrantedAuthority ga : authentication.getAuthorities()) {
                 String authorityName = (new GrantedAuthoritySid(ga)).getGrantedAuthority();
-                if( authorityName.equals(sid.getName()) || sid.matches(authorityName).matches()){
-                    return true;
+                matcher = sid.matches(authorityName);
+                if( authorityName.equals(sid.getName()) || matcher.matches()){
+                    matchingAuthorities.add(matcher);
+                    if( !matchAll) break;
                 }
             }
         }
-        return false;
+
+        return matchingAuthorities;
     }
 
     @Override
     public void checkName(String name) throws Failure {
         boolean matches = false;
         ArrayList<String> badList = null;
-        AuthorizationStrategy auth = Jenkins.getActiveInstance().getAuthorizationStrategy();
+       AuthorizationStrategy auth = Jenkins.getInstance().getAuthorizationStrategy();
         if (auth instanceof RoleBasedAuthorizationStrategy){
             RoleBasedAuthorizationStrategy rbas = (RoleBasedAuthorizationStrategy) auth;
 
             //firstly check global role
-            SortedMap<Role, Set<RoleSid>> gRole = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
-            for (SortedMap.Entry<Role, Set<RoleSid>> entry: gRole.entrySet()){
-                if( checkAuthorities( entry.getValue())) {
+            SortedMap<Role, Set<MatchingSid>> gRole = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
+            boolean hasGlobalAuth = false;
+            for (SortedMap.Entry<Role, Set<MatchingSid>> entry: gRole.entrySet()){
+                List<Matcher> matchingAuthorities = checkAuthorities(entry.getValue(), false);
+                if( matchingAuthorities.size() > 0) {
                     if (entry.getKey().hasPermission(Item.CREATE))
-                        return;
+                        hasGlobalAuth = true;
+                    break;
                 }
             }
             // check project role with pattern
-            SortedMap<Role, Set<RoleSid>> roles = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.PROJECT);
+            SortedMap<Role, Set<MatchingSid>> roles = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.PROJECT);
             badList = new ArrayList<>(roles.size());
-            for (SortedMap.Entry<Role, Set<RoleSid>> entry: roles.entrySet())  {
-                if( checkAuthorities( entry.getValue())) {
+            for (SortedMap.Entry<Role, Set<MatchingSid>> entry: roles.entrySet())  {
+
+                if( hasGlobalAuth) {
                     Role key = entry.getKey();
                     if (key.hasPermission(Item.CREATE)) {
                         String namePattern = key.getPattern().toString();
                         if (StringUtils.isNotBlank(namePattern) && StringUtils.isNotBlank(name)) {
-                            if (Pattern.matches(namePattern, name)) {
-                                matches = true;
-                            } else {
-                                badList.add(namePattern);
+                            Pattern pattern = Pattern.compile(namePattern);
+                            Matcher matcher = pattern.matcher(name);
+                            List<Matcher> matchingAuthorities = checkAuthorities(entry.getValue(), matcher.groupCount() > 0);
+                            if( matchingAuthorities.size() > 0) {
+                                if( matcher.groupCount() == 0) {
+                                    if (matcher.matches()) {
+                                        matches = true;
+                                    } else {
+                                        badList.add(namePattern);
+                                    }
+                                } else {
+                                    if( matcher.matches()){
+                                        String catchingGroup = matcher.group(1);
+                                        for( Matcher nextMatcher : matchingAuthorities){
+                                            if( nextMatcher.groupCount() > 0 && nextMatcher.group(1).equals(catchingGroup)){
+                                                matches = true;
+                                                break;
+                                            }
+                                        }
+                                        if( !matches){
+                                            badList.add(namePattern);
+                                        }
+                                    } else {
+                                        badList.add(namePattern);
+                                    }
+                                }
                             }
                         }
                     }

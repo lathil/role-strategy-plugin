@@ -68,10 +68,10 @@ import org.springframework.dao.DataAccessException;
 public class RoleMap {
 
   /** Map associating each {@link Role} with the concerned {@link User}s/groups. */
-  private final SortedMap <Role,Set<RoleSid>> grantedRoles;
+  private final SortedMap <Role,Set<MatchingSid>> grantedRoles;
 
   private static final Logger LOGGER = Logger.getLogger(RoleMap.class.getName());
-  
+
   private final Cache<String, UserDetails> cache = CacheBuilder.newBuilder()
           .softValues()
           .maximumSize(Settings.USER_DETAILS_CACHE_MAX_SIZE)
@@ -88,13 +88,13 @@ public class RoleMap {
      * @param grantedRoles Roles to be granted.
      */
     @DataBoundConstructor
-    public RoleMap(@Nonnull SortedMap<Role,Set<RoleSid>> grantedRoles) {
+    public RoleMap(@Nonnull SortedMap<Role,Set<MatchingSid>> grantedRoles) {
         this.grantedRoles = grantedRoles;
     }
 
-    private boolean hasMatchingSid( Set<RoleSid> sids, RoleSid sidToSearch){
+    private boolean hasMatchingSid(Set<MatchingSid> sids, MatchingSid sidToSearch){
 
-        for( RoleSid sid: sids){
+        for( MatchingSid sid: sids){
             Matcher matcher = sid.matches(sidToSearch.getName());
             if( matcher.matches()){
                 return true;
@@ -113,25 +113,41 @@ public class RoleMap {
       p = Jenkins.ADMINISTER;
     }
 
-    for(Role role : getRolesHavingPermission(p)) {
+    for(Role role :  getRolesHavingPermission(p)) {
 
-        HashSet<RoleSid> sids = (HashSet<RoleSid>)this.grantedRoles.get(role);
-        RoleSid sidToSearch = new RoleSid(sid, false);
-        if(sids.contains(sidToSearch)) {
-            // Handle roles macro
-            if (Macro.isMacro(role)) {
-                Macro macro = RoleMacroExtension.getMacro(role.getName());
-                if (macro != null) {
-                    RoleMacroExtension macroExtension = RoleMacroExtension.getMacroExtension(macro.getName());
-                    if (macroExtension.IsApplicable(roleType) && macroExtension.hasPermission(sid, p, roleType, controlledItem, macro)) {
-                        return true;
+        HashSet<MatchingSid> sids = (HashSet<MatchingSid>)this.grantedRoles.get(role);
+        MatchingSid selectedSid = null;
+        if( sids != null) {
+            for (MatchingSid matchingSid : sids) {
+                Matcher matcher = matchingSid.matches(sid);
+                if (matcher.matches()) {
+                    if (role.getMatcher() != null && matcher.groupCount() == role.getMatcher().groupCount()) {
+                        if (matcher.groupCount() > 0) {
+                            boolean groupsMatches = true;
+                            for (int i = 1; i <= matcher.groupCount(); i++) {
+                                if (!matcher.group(i).equals(role.getMatcher().group(i))) {
+                                    groupsMatches = false;
+                                    break;
+                                }
+                            }
+                            if (groupsMatches) {
+                                selectedSid = matchingSid;
+                                break;
+                            }
+                        } else {
+                            selectedSid = matchingSid;
+                            break;
+                        }
+                    } else {
+                        // global roles don't have a matcher
+                        selectedSid = matchingSid;
+                        break;
                     }
                 }
-            } // Default handling
-            else {
-                return true;
             }
-        } else if(hasMatchingSid(sids, sidToSearch)) {
+        }
+
+        if( selectedSid != null) {
             // Handle roles macro
             if (Macro.isMacro(role)) {
                 Macro macro = RoleMacroExtension.getMacro(role.getName());
@@ -175,7 +191,7 @@ public class RoleMap {
 
   /**
    * Check if the {@link RoleMap} contains the given {@link Role}.
-   * 
+   *
    * @param role Role to be checked
    * @return {@code true} if the {@link RoleMap} contains the given role
    */
@@ -208,7 +224,7 @@ public class RoleMap {
    */
   public void assignRole(Role role, String sid) {
     if (this.hasRole(role)) {
-      this.grantedRoles.get(role).add(new RoleSid(sid));
+      this.grantedRoles.get(role).add(new MatchingSid(sid));
     }
   }
 
@@ -235,16 +251,16 @@ public class RoleMap {
       this.grantedRoles.get(role).clear();
     }
   }
-  
+
   /**
    * Clear all the roles associated to the given sid
    * @param sid The sid for thwich you want to clear the {@link Role}s
    */
   public void deleteSids(String sid){
-     for (Map.Entry<Role, Set<RoleSid>> entry: grantedRoles.entrySet()) {
+     for (Map.Entry<Role, Set<MatchingSid>> entry: grantedRoles.entrySet()) {
          Role role = entry.getKey();
-         Set<RoleSid> sids = entry.getValue();
-         RoleSid sidToSearch = new RoleSid(sid, false);
+         Set<MatchingSid> sids = entry.getValue();
+         MatchingSid sidToSearch = new MatchingSid(sid, false);
          if (sids.contains(sidToSearch)) {
              sids.remove(sidToSearch);
          }
@@ -258,7 +274,7 @@ public class RoleMap {
    * @since 2.6.0
    */
   public void deleteRoleSid(String sid, String rolename){
-     for (Map.Entry<Role, Set<RoleSid>> entry: grantedRoles.entrySet()) {
+     for (Map.Entry<Role, Set<MatchingSid>> entry: grantedRoles.entrySet()) {
          Role role = entry.getKey();
          if (role.getName().equals(rolename)) {
             unAssignRole(role, sid);
@@ -271,7 +287,7 @@ public class RoleMap {
    * Clear all the sids for each {@link Role} of the {@link RoleMap}.
    */
   public void clearSids() {
-    for (Map.Entry<Role, Set<RoleSid>> entry : this.grantedRoles.entrySet()) {
+    for (Map.Entry<Role, Set<MatchingSid>> entry : this.grantedRoles.entrySet()) {
       Role role = entry.getKey();
       this.clearSidsForRole(role);
     }
@@ -292,7 +308,7 @@ public class RoleMap {
     }
     return null;
   }
-  
+
   /**
    * Removes a {@link Role}
    * @param role The {@link Role} which shall be removed
@@ -300,13 +316,13 @@ public class RoleMap {
   public void removeRole(Role role){
       this.grantedRoles.remove(role);
   }
-  
+
 
   /**
    * Get an unmodifiable sorted map containing {@link Role}s and their assigned sids.
    * @return An unmodifiable sorted map containing the {@link Role}s and their associated sids
    */
-  public SortedMap<Role, Set<RoleSid>> getGrantedRoles() {
+  public SortedMap<Role, Set<MatchingSid>> getGrantedRoles() {
     return Collections.unmodifiableSortedMap(this.grantedRoles);
   }
 
@@ -322,7 +338,7 @@ public class RoleMap {
    * Get all the sids referenced in this {@link RoleMap}, minus the {@code Anonymous} sid.
    * @return A sorted set containing all the sids, minus the {@code Anonymous} sid
    */
-  public SortedSet<String> getSids() {
+  public SortedSet<MatchingSid> getSids() {
     return this.getSids(false);
   }
 
@@ -331,17 +347,17 @@ public class RoleMap {
    * @param includeAnonymous True if you want the {@code Anonymous} sid to be included in the set
    * @return A sorted set containing all the sids
    */
-  public SortedSet<String> getSids(Boolean includeAnonymous) {
-    TreeSet<String> sids = new TreeSet<>();
-    for (Map.Entry<Role, Set<RoleSid>> entry : this.grantedRoles.entrySet()) {
-        for(RoleSid roleSid: entry.getValue()){
-            sids.add(roleSid.getName());
+  public SortedSet<MatchingSid> getSids(Boolean includeAnonymous) {
+    TreeSet<MatchingSid> sids = new TreeSet<>();
+    for (Map.Entry<Role, Set<MatchingSid>> entry : this.grantedRoles.entrySet()) {
+        for(MatchingSid matchingSid : entry.getValue()){
+            // Remove the anonymous sid if asked to
+            if( !(!includeAnonymous  && matchingSid.getName().equals("anonymous"))) {
+                sids.add(matchingSid);
+            }
         }
     }
-    // Remove the anonymous sid if asked to
-    if (!includeAnonymous) {
-      sids.remove("anonymous");
-    }
+
     return Collections.unmodifiableSortedSet(sids);
   }
 
@@ -352,7 +368,7 @@ public class RoleMap {
    *         {@code null} if the role is missing.
    */
   @CheckForNull
-  public Set<RoleSid> getSidsForRole(String roleName) {
+  public Set<MatchingSid> getSidsForRole(String roleName) {
     Role role = this.getRole(roleName);
     if (role != null) {
       return Collections.unmodifiableSet(this.grantedRoles.get(role));
@@ -367,8 +383,8 @@ public class RoleMap {
    * @return A {@link RoleMap} containing only {@link Role}s matching the given name
    */
   public RoleMap newMatchingRoleMap(String namePattern) {
-    Set<MatchingRole> roles = getMatchingRoles(namePattern);
-    SortedMap<Role, Set<RoleSid>> roleMap = new TreeMap<>();
+    Set<Role> roles = getMatchingRoles(namePattern);
+    SortedMap<Role, Set<MatchingSid>> roleMap = new TreeMap<>();
     for (Role role : roles) {
       roleMap.put(role, this.grantedRoles.get(role));
     }
@@ -407,8 +423,8 @@ public class RoleMap {
    * @param namePattern The string to match
    * @return A Set of Roles matching the given name
    */
-  private Set<MatchingRole> getMatchingRoles(final String namePattern) {
-    final Set<MatchingRole> roles = new HashSet<>();
+  private Set<Role> getMatchingRoles(final String namePattern) {
+    final Set<Role> roles = new HashSet<>();
 
     // Walk through the roles and only add the Roles whose pattern matches the given string
     new RoleWalker() {

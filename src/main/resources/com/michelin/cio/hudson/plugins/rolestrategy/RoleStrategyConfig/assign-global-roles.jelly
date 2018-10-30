@@ -45,8 +45,8 @@
       </tr>
       <j:set var="nbAssignedGlobalRoles" value="${0}" />
       <j:forEach var="sid" items="${globalSIDs}">
-        <tr name="[${sid}]" class="permission-row">
-          <local:userRow sid="${sid}" title="${sid}" global="${true}"  type="${it.strategy.GLOBAL}"/>
+        <tr name="[${sid.getName()}]" class="permission-row">
+          <local:userRow sid="${sid}" title="${sid.getName()}" global="${true}"  type="${it.strategy.GLOBAL}"/>
         </tr>
         <j:set var="nbAssignedGlobalRoles" value="${nbAssignedGlobalRoles+1}" />
       </j:forEach>

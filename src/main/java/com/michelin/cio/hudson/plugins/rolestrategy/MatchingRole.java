@@ -1,61 +1,53 @@
 package com.michelin.cio.hudson.plugins.rolestrategy;
 
 import hudson.security.Permission;
+import org.apache.commons.collections.CollectionUtils;
 
 import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class MatchingRole extends Role {
 
-    Role role;
-    Matcher matcher;
+    Matcher matcher = null;
+    Role role = null;
 
-
-    public MatchingRole(Role role, Matcher matcher){
+    MatchingRole(Role role, Matcher matcher){
         this.role = role;
         this.matcher = matcher;
     }
-/*
-    public MatchingRole(String name, Set<Permission> permissions) {
-        role = new Role(name, permissions);
-    }
 
-    public MatchingRole(String name, String pattern, Set<Permission> permissions) {
-        role = new Role(name, pattern, permissions);
-    }
+    @Override
+    public String getName() { return role.getName(); }
 
-    public MatchingRole(@Nonnull String name, @CheckForNull String pattern, @CheckForNull Set<String> permissionIds, @CheckForNull String description) {
-        role = new Role(name, pattern, permissionIds, description);
-    }
-
-    public MatchingRole(String name, Pattern pattern, Set<Permission> permissions, @CheckForNull String description) {
-        role = new Role(name, pattern, permissions, description);
-    }
-    */
-
-    public final String getName(){
-        return role.getName();
-    }
-
+    /**
+     * Getter for the regexp pattern.
+     * @return The pattern associated to the role
+     */
     @Override
     public Pattern getPattern() {
         return role.getPattern();
     }
 
+    /**
+     * Getter for the {@link Permission}s set.
+     * @return {@link Permission}s set
+     */
     @Override
-    public Set<Permission> getPermissions() {
-        return role.getPermissions();
-    }
+    public Set< Permission > getPermissions() { return role.getPermissions(); }
 
-    @CheckForNull
     @Override
+    @CheckForNull
     public String getDescription() {
         return role.getDescription();
     }
 
+    /**
+     * Checks if the role holds the given {@link Permission}.
+     * @param permission The permission you want to check
+     * @return True if the role holds this permission
+     */
     @Override
     public Boolean hasPermission(Permission permission) {
         return role.hasPermission(permission);
@@ -67,13 +59,23 @@ public class MatchingRole extends Role {
     }
 
     @Override
-    public int compareTo(Object o) {
-        return role.compareTo(o);
+    public Matcher getMatcher(){
+        return matcher;
     }
 
     @Override
     public int hashCode() {
         return role.hashCode();
+    }
+
+    @Override
+    public int compareTo(Object o) {
+        if (o instanceof MatchingRole) {
+            return getName().compareTo(((MatchingRole)o).getName());
+        } else if( o instanceof Role){
+            return getName().compareTo(((Role)o).getName());
+        }
+        return -1;
     }
 
     @Override
@@ -84,21 +86,19 @@ public class MatchingRole extends Role {
         if (obj == null) {
             return false;
         }
-        if ( !(obj instanceof MatchingRole) )  {
+        if (getClass() != obj.getClass()) {
             return false;
         }
         final Role other = (Role) obj;
-        if ((this.getName() == null) ? (other.getName() != null) : !this.getName().equals(other.getName())) {
+        if ((this.role.getName() == null) ? (other.getName() != null) : !this.role.getName().equals(other.getName())) {
             return false;
         }
-        if (this.getPattern() != other.getPattern() && (this.getPattern() == null || !this.getPattern().equals(other.getPattern()))) {
+        if (this.role.getPattern() != other.getPattern() && (this.role.getPattern() == null || !this.role.getPattern().equals(other.getPattern()))) {
             return false;
         }
-        if (this.getPermissions() != other.getPermissions() && (this.getPermissions() == null || !this.getPermissions().equals(other.getPermissions()))) {
+        if (this.role.getPermissions() != other.getPermissions() && (this.role.getPermissions() == null || !this.role.getPermissions().equals(other.getPermissions()))) {
             return false;
         }
         return true;
     }
-
-
 }
