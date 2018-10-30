@@ -6,6 +6,7 @@ import com.michelin.cio.hudson.plugins.rolestrategy.Role;
 import com.michelin.cio.hudson.plugins.rolestrategy.RoleBasedAuthorizationStrategy;
 import hudson.Extension;
 import hudson.model.Failure;
+import hudson.model.Hudson;
 import hudson.model.Item;
 import hudson.security.AuthorizationStrategy;
 import jenkins.model.Jenkins;
@@ -75,48 +76,57 @@ public class RoleBasedProjectNamingStrategy extends ProjectNamingStrategy implem
             //firstly check global role
             SortedMap<Role, Set<MatchingSid>> gRole = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
             boolean hasGlobalAuth = false;
+            boolean isAdmin = false;
             for (SortedMap.Entry<Role, Set<MatchingSid>> entry: gRole.entrySet()){
                 List<Matcher> matchingAuthorities = checkAuthorities(entry.getValue(), false);
                 if( matchingAuthorities.size() > 0) {
-                    if (entry.getKey().hasPermission(Item.CREATE))
+                    if (entry.getKey().hasPermission(Item.CREATE)) {
                         hasGlobalAuth = true;
-                    break;
+                    }
+                    if( entry.getKey().hasPermission(Hudson.ADMINISTER)){
+                        isAdmin = true;
+                    }
                 }
             }
-            // check project role with pattern
-            SortedMap<Role, Set<MatchingSid>> roles = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.PROJECT);
-            badList = new ArrayList<>(roles.size());
-            for (SortedMap.Entry<Role, Set<MatchingSid>> entry: roles.entrySet())  {
+            if( isAdmin) {
+                // admin have right to name projects the way they want.
+                matches = true;
+            } else {
+                // check project role with pattern
+                SortedMap<Role, Set<MatchingSid>> roles = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.PROJECT);
+                badList = new ArrayList<>(roles.size());
+                for (SortedMap.Entry<Role, Set<MatchingSid>> entry : roles.entrySet()) {
 
-                if( hasGlobalAuth) {
-                    Role key = entry.getKey();
-                    if (key.hasPermission(Item.CREATE)) {
-                        String namePattern = key.getPattern().toString();
-                        if (StringUtils.isNotBlank(namePattern) && StringUtils.isNotBlank(name)) {
-                            Pattern pattern = Pattern.compile(namePattern);
-                            Matcher matcher = pattern.matcher(name);
-                            List<Matcher> matchingAuthorities = checkAuthorities(entry.getValue(), matcher.groupCount() > 0);
-                            if( matchingAuthorities.size() > 0) {
-                                if( matcher.groupCount() == 0) {
-                                    if (matcher.matches()) {
-                                        matches = true;
-                                    } else {
-                                        badList.add(namePattern);
-                                    }
-                                } else {
-                                    if( matcher.matches()){
-                                        String catchingGroup = matcher.group(1);
-                                        for( Matcher nextMatcher : matchingAuthorities){
-                                            if( nextMatcher.groupCount() > 0 && nextMatcher.group(1).equals(catchingGroup)){
-                                                matches = true;
-                                                break;
-                                            }
-                                        }
-                                        if( !matches){
+                    if (hasGlobalAuth) {
+                        Role key = entry.getKey();
+                        if (key.hasPermission(Item.CREATE)) {
+                            String namePattern = key.getPattern().toString();
+                            if (StringUtils.isNotBlank(namePattern) && StringUtils.isNotBlank(name)) {
+                                Pattern pattern = Pattern.compile(namePattern);
+                                Matcher matcher = pattern.matcher(name);
+                                List<Matcher> matchingAuthorities = checkAuthorities(entry.getValue(), matcher.groupCount() > 0);
+                                if (matchingAuthorities.size() > 0 && hasGlobalAuth) {
+                                    if (matcher.groupCount() == 0) {
+                                        if (matcher.matches()) {
+                                            matches = true;
+                                        } else {
                                             badList.add(namePattern);
                                         }
                                     } else {
-                                        badList.add(namePattern);
+                                        if (matcher.matches()) {
+                                            String catchingGroup = matcher.group(1);
+                                            for (Matcher nextMatcher : matchingAuthorities) {
+                                                if (nextMatcher.groupCount() > 0 && nextMatcher.group(1).equals(catchingGroup)) {
+                                                    matches = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (!matches) {
+                                                badList.add(namePattern);
+                                            }
+                                        } else {
+                                            badList.add(namePattern);
+                                        }
                                     }
                                 }
                             }
