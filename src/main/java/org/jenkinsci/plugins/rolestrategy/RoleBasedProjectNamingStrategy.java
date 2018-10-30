@@ -5,6 +5,7 @@ import com.michelin.cio.hudson.plugins.rolestrategy.Role;
 import com.michelin.cio.hudson.plugins.rolestrategy.RoleBasedAuthorizationStrategy;
 import hudson.Extension;
 import hudson.model.Failure;
+import hudson.model.Hudson;
 import hudson.model.Item;
 import hudson.security.AuthorizationStrategy;
 import jenkins.model.Jenkins;
@@ -64,31 +65,42 @@ public class RoleBasedProjectNamingStrategy extends ProjectNamingStrategy implem
             //firstly check global role
             SortedMap<Role, Set<String>> gRole = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.GLOBAL);
             boolean hasGlobalAuth = false;
+            boolean isAdmin = false;
             for (SortedMap.Entry<Role, Set<String>> entry: gRole.entrySet()){
                 if( checkAuthorities(entry.getValue())) {
-                    if (entry.getKey().hasPermission(Item.CREATE))
+                    if (entry.getKey().hasPermission(Item.CREATE)) {
                         hasGlobalAuth = true;
-                    break;
+                    }
+                    if( entry.getKey().hasPermission(Hudson.ADMINISTER)){
+                        isAdmin = true;
+                    }
                 }
             }
-            // check project role with pattern
-            SortedMap<Role, Set<String>> roles = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.PROJECT);
-            badList = new ArrayList<>(roles.size());
-            for (SortedMap.Entry<Role, Set<String>> entry: roles.entrySet())  {
-                if( checkAuthorities(entry.getValue()) && hasGlobalAuth) {
-                    Role key = entry.getKey();
-                    if (key.hasPermission(Item.CREATE)) {
-                        String namePattern = key.getPattern().toString();
-                        if (StringUtils.isNotBlank(namePattern) && StringUtils.isNotBlank(name)) {
-                            if (Pattern.matches(namePattern, name)) {
-                                matches = true;
-                            } else {
-                                badList.add(namePattern);
+
+            if( isAdmin) {
+                // admin have right to name projects the way they want.
+                matches = true;
+            } else {
+                // check project role with pattern
+                SortedMap<Role, Set<String>> roles = rbas.getGrantedRoles(RoleBasedAuthorizationStrategy.PROJECT);
+                badList = new ArrayList<>(roles.size());
+                for (SortedMap.Entry<Role, Set<String>> entry : roles.entrySet()) {
+                    if (checkAuthorities(entry.getValue()) && hasGlobalAuth) {
+                        Role key = entry.getKey();
+                        if (key.hasPermission(Item.CREATE)) {
+                            String namePattern = key.getPattern().toString();
+                            if (StringUtils.isNotBlank(namePattern) && StringUtils.isNotBlank(name)) {
+                                if (Pattern.matches(namePattern, name)) {
+                                    matches = true;
+                                } else {
+                                    badList.add(namePattern);
+                                }
                             }
                         }
                     }
                 }
             }
+
         }
         if (!matches) {
             String error;
