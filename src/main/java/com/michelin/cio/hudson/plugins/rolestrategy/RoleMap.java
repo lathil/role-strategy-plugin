@@ -125,7 +125,7 @@ public class RoleMap {
                         if (matcher.groupCount() > 0) {
                             boolean groupsMatches = true;
                             for (int i = 1; i <= matcher.groupCount(); i++) {
-                                if (!matcher.group(i).equals(role.getMatcher().group(i))) {
+                                if (!matcher.group(i).toLowerCase().equals(role.getMatcher().group(i).toLowerCase())) {
                                     groupsMatches = false;
                                     break;
                                 }
