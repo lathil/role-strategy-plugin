@@ -116,7 +116,7 @@ public class RoleBasedProjectNamingStrategy extends ProjectNamingStrategy implem
                                         if (matcher.matches()) {
                                             String catchingGroup = matcher.group(1);
                                             for (Matcher nextMatcher : matchingAuthorities) {
-                                                if (nextMatcher.groupCount() > 0 && nextMatcher.group(1).equals(catchingGroup)) {
+                                                if (nextMatcher.groupCount() > 0 && nextMatcher.group(1).toLowerCase().equals(catchingGroup.toLowerCase())) {
                                                     matches = true;
                                                     break;
                                                 }
